@@ -1,0 +1,8 @@
+{
+  "accuracy": 0.8342541436464088,
+  "weighted_precision": 0.8395149317181757,
+  "weighted_recall": 0.8342541436464088,
+  "weighted_f1": 0.83479839861198,
+  "total_fused_features": 512,
+  "selected_features": 512
+}

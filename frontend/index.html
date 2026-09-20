@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Skin Lesion AI</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- Header -->
+
+        <header>
+
+            <h1>🩺 Skin Lesion AI</h1>
+
+            <p>
+                AI-Based Skin Lesion Classification System
+            </p>
+
+        </header>
+
+
+        <!-- Main Card -->
+
+        <div class="card">
+
+            <h2>Upload Skin Image</h2>
+
+            <p class="description">
+                Upload a skin lesion image for AI-based
+                classification.
+            </p>
+
+
+            <!-- File Input -->
+
+            <div class="upload-area">
+
+                <input
+                    type="file"
+                    id="imageInput"
+                    accept=".jpg,.jpeg,.png,.bmp,.webp"
+                >
+
+                <label for="imageInput">
+
+                    📁 Choose Skin Image
+
+                </label>
+
+                <p id="fileName">
+                    No image selected
+                </p>
+
+            </div>
+
+
+            <!-- Image Preview -->
+
+            <div
+                id="previewContainer"
+                class="preview-container hidden"
+            >
+
+                <img
+                    id="imagePreview"
+                    alt="Selected skin lesion"
+                >
+
+            </div>
+
+
+            <!-- Predict Button -->
+
+            <button
+                id="predictBtn"
+                disabled
+            >
+
+                🔍 Predict Skin Lesion
+
+            </button>
+
+
+            <!-- Loading -->
+
+            <div
+                id="loading"
+                class="loading hidden"
+            >
+
+                <div class="spinner"></div>
+
+                <p>
+                    AI is analyzing the image...
+                </p>
+
+            </div>
+
+
+            <!-- Result -->
+
+            <div
+                id="result"
+                class="result hidden"
+            >
+
+                <h2>Prediction Result</h2>
+
+                <div class="result-box">
+
+                    <p class="result-label">
+                        Predicted Class
+                    </p>
+
+                    <h3 id="prediction">
+                        -
+                    </h3>
+
+                </div>
+
+
+                <div class="result-box">
+
+                    <p class="result-label">
+                        Confidence
+                    </p>
+
+                    <h3>
+
+                        <span id="confidence">
+                            -
+                        </span>%
+
+                    </h3>
+
+                </div>
+
+
+                <div class="confidence-bar">
+
+                    <div
+                        id="confidenceFill"
+                        class="confidence-fill"
+                    ></div>
+
+                </div>
+
+
+                <p class="note">
+
+                    ⚠️ AI screening support only.
+                    This result is not a definitive
+                    medical diagnosis.
+
+                </p>
+
+            </div>
+
+
+            <!-- Error -->
+
+            <div
+                id="error"
+                class="error hidden"
+            ></div>
+
+        </div>
+
+
+        <!-- Footer -->
+
+        <footer>
+
+            <p>
+                Skin Lesion AI | Research Project
+            </p>
+
+        </footer>
+
+    </div>
+
+
+    <script src="/static/script.js"></script>
+
+</body>
+
+</html>
