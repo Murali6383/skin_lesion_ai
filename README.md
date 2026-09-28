@@ -40,6 +40,11 @@ STEPS MODEL TRAIN
 
 STEPS :
 
-1.//pip install -r requirements.txt
-2.//python -m ai.predict --image ai\test_image.jpg
-3.//python -m uvicorn backend.main:app --reload
+3.//pip install -r requirements.txt
+
+4.//python -m uvicorn backend.main:app --reload
+
+
+
+
+
