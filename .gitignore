@@ -25,3 +25,10 @@ Thumbs.db
 
 # Logs
 *.log
+# Grad-CAM generated images
+results/gradcam/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+

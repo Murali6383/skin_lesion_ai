@@ -7,18 +7,36 @@ import React, {
 const API_URL = "http://127.0.0.1:8001";
 const STORAGE_KEY = "skinguardian_chats";
 
-// Streaming UI tuning
 const STREAM_UPDATE_INTERVAL = 40;
 
 function App() {
+  // =====================================================
+  // STATE
+  // =====================================================
+
   const [chats, setChats] = useState(() => {
     try {
-      const saved = localStorage.getItem(
-        STORAGE_KEY
+      const saved =
+        localStorage.getItem(
+          STORAGE_KEY
+        );
+
+      if (!saved) {
+        return [];
+      }
+
+      const parsed =
+        JSON.parse(saved);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : [];
+    } catch (error) {
+      console.warn(
+        "Unable to load saved chats:",
+        error
       );
 
-      return saved ? JSON.parse(saved) : [];
-    } catch {
       return [];
     }
   });
@@ -26,21 +44,33 @@ function App() {
   const [activeChatId, setActiveChatId] =
     useState(null);
 
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] =
+    useState("");
 
-  const [image, setImage] = useState(null);
+  const [image, setImage] =
+    useState(null);
 
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] =
+    useState(null);
 
   const [loading, setLoading] =
     useState(false);
 
-  const fileInputRef = useRef(null);
-  const textareaRef = useRef(null);
-  const bottomRef = useRef(null);
+  const fileInputRef =
+    useRef(null);
 
-  // Used to safely update streaming message
-  const streamBufferRef = useRef("");
+  const textareaRef =
+    useRef(null);
+
+  const bottomRef =
+    useRef(null);
+
+  // =====================================================
+  // STREAMING REFERENCES
+  // =====================================================
+
+  const streamBufferRef =
+    useRef("");
 
   const streamFlushTimerRef =
     useRef(null);
@@ -52,20 +82,69 @@ function App() {
     useRef(null);
 
   // =====================================================
-  // SAVE CHATS
+  // SAVE CHATS SAFELY
   // =====================================================
 
   useEffect(() => {
     try {
+      const lightweightChats =
+        chats.map((chat) => ({
+          id: chat.id,
+
+          title: chat.title,
+
+          createdAt:
+            chat.createdAt,
+
+          updatedAt:
+            chat.updatedAt,
+
+          messages:
+            (chat.messages || []).map(
+              (message) => ({
+                id: message.id,
+
+                role: message.role,
+
+                text:
+                  message.text || "",
+
+                prediction:
+                  message.prediction || null,
+
+                note:
+                  message.note || null,
+
+                error:
+                  message.error || false,
+
+                streaming: false,
+
+                createdAt:
+                  message.createdAt,
+              })
+            ),
+        }));
+
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(chats)
+        JSON.stringify(
+          lightweightChats
+        )
       );
     } catch (error) {
-      console.error(
-        "Unable to save chats:",
+      console.warn(
+        "Chat history could not be saved:",
         error
       );
+
+      try {
+        localStorage.removeItem(
+          STORAGE_KEY
+        );
+      } catch {
+        // Ignore storage cleanup failure
+      }
     }
   }, [chats]);
 
@@ -88,41 +167,45 @@ function App() {
   // ACTIVE CHAT
   // =====================================================
 
-  const activeChat = chats.find(
-    (chat) => chat.id === activeChatId
-  );
+  const activeChat =
+    chats.find(
+      (chat) =>
+        chat.id === activeChatId
+    );
 
   // =====================================================
   // AUTO RESIZE TEXTAREA
   // =====================================================
 
-  const autoResizeTextarea = (
-    element
-  ) => {
-    if (!element) {
-      return;
-    }
+  const autoResizeTextarea =
+    (element) => {
+      if (!element) {
+        return;
+      }
 
-    element.style.height = "auto";
+      element.style.height =
+        "auto";
 
-    const newHeight = Math.min(
-      element.scrollHeight,
-      180
-    );
+      const newHeight =
+        Math.min(
+          element.scrollHeight,
+          180
+        );
 
-    element.style.height =
-      `${newHeight}px`;
-  };
+      element.style.height =
+        `${newHeight}px`;
+    };
 
-  const handlePromptChange = (
-    event
-  ) => {
-    setPrompt(event.target.value);
+  const handlePromptChange =
+    (event) => {
+      setPrompt(
+        event.target.value
+      );
 
-    autoResizeTextarea(
-      event.target
-    );
-  };
+      autoResizeTextarea(
+        event.target
+      );
+    };
 
   const resetTextarea = () => {
     if (textareaRef.current) {
@@ -141,14 +224,18 @@ function App() {
     }
 
     setActiveChatId(null);
+
     setPrompt("");
+
     setImage(null);
+
     setPreview(null);
 
     resetTextarea();
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.value =
+        "";
     }
   };
 
@@ -161,24 +248,19 @@ function App() {
       return;
     }
 
-    const chat = chats.find(
-      (item) => item.id === chatId
-    );
-
     setActiveChatId(chatId);
+
     setPrompt("");
+
     setImage(null);
+
+    setPreview(null);
 
     resetTextarea();
 
-    if (chat?.imageData) {
-      setPreview(chat.imageData);
-    } else {
-      setPreview(null);
-    }
-
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.value =
+        "";
     }
   };
 
@@ -196,17 +278,23 @@ function App() {
       return;
     }
 
-    setChats((oldChats) =>
-      oldChats.filter(
-        (chat) =>
-          chat.id !== chatId
-      )
+    setChats(
+      (oldChats) =>
+        oldChats.filter(
+          (chat) =>
+            chat.id !== chatId
+        )
     );
 
-    if (activeChatId === chatId) {
+    if (
+      activeChatId === chatId
+    ) {
       setActiveChatId(null);
+
       setPrompt("");
+
       setImage(null);
+
       setPreview(null);
     }
   };
@@ -215,124 +303,111 @@ function App() {
   // FILE TO DATA URL
   // =====================================================
 
-  const fileToDataURL = (
-    file
-  ) => {
-    return new Promise(
-      (resolve, reject) => {
-        const reader =
-          new FileReader();
+  const fileToDataURL =
+    (file) => {
+      return new Promise(
+        (resolve, reject) => {
+          const reader =
+            new FileReader();
 
-        reader.onload = () => {
-          resolve(
-            reader.result
+          reader.onload = () => {
+            resolve(
+              reader.result
+            );
+          };
+
+          reader.onerror =
+            reject;
+
+          reader.readAsDataURL(
+            file
           );
-        };
-
-        reader.onerror =
-          reject;
-
-        reader.readAsDataURL(file);
-      }
-    );
-  };
+        }
+      );
+    };
 
   // =====================================================
   // DATA URL TO FILE
   // =====================================================
 
-  const dataURLToFile = async (
-    dataURL,
-    filename = "skin_lesion.jpg"
-  ) => {
-    try {
-      const response =
-        await fetch(dataURL);
+  const dataURLToFile =
+    async (
+      dataURL,
+      filename = "skin_lesion.jpg"
+    ) => {
+      try {
+        const response =
+          await fetch(
+            dataURL
+          );
 
-      const blob =
-        await response.blob();
+        const blob =
+          await response.blob();
 
-      return new File(
-        [blob],
-        filename,
-        {
-          type:
-            blob.type ||
-            "image/jpeg",
-        }
-      );
-    } catch (error) {
-      console.error(
-        "Image restore error:",
-        error
-      );
+        return new File(
+          [blob],
+          filename,
+          {
+            type:
+              blob.type ||
+              "image/jpeg",
+          }
+        );
+      } catch (error) {
+        console.error(
+          "Image restore error:",
+          error
+        );
 
-      return null;
-    }
-  };
+        return null;
+      }
+    };
 
   // =====================================================
   // IMAGE UPLOAD
   // =====================================================
 
-  const handleImage = async (
-    event
-  ) => {
-    const file =
-      event.target.files?.[0];
+  const handleImage =
+    async (event) => {
+      const file =
+        event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+      if (!file) {
+        return;
+      }
 
-    if (
-      !file.type.startsWith(
-        "image/"
-      )
-    ) {
-      alert(
-        "Please select an image."
-      );
+      if (
+        !file.type.startsWith(
+          "image/"
+        )
+      ) {
+        alert(
+          "Please select an image."
+        );
 
-      return;
-    }
+        return;
+      }
 
-    try {
-      const dataURL =
-        await fileToDataURL(file);
+      try {
+        const dataURL =
+          await fileToDataURL(
+            file
+          );
 
-      setImage(file);
-      setPreview(dataURL);
+        setImage(file);
 
-      if (activeChatId) {
-        setChats((oldChats) =>
-          oldChats.map((chat) => {
-            if (
-              chat.id !==
-              activeChatId
-            ) {
-              return chat;
-            }
+        setPreview(dataURL);
+      } catch (error) {
+        console.error(
+          "Image processing error:",
+          error
+        );
 
-            return {
-              ...chat,
-
-              imageData: dataURL,
-
-              updatedAt:
-                new Date().toISOString(),
-            };
-          })
+        alert(
+          "Unable to process image."
         );
       }
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Unable to process image."
-      );
-    }
-  };
+    };
 
   // =====================================================
   // REMOVE IMAGE
@@ -344,6 +419,7 @@ function App() {
     }
 
     setImage(null);
+
     setPreview(null);
 
     if (fileInputRef.current) {
@@ -356,44 +432,31 @@ function App() {
   // CHAT TITLE
   // =====================================================
 
-  const generateTitle = (
-    text
-  ) => {
-    const cleanText =
-      text.trim();
+  const generateTitle =
+    (text) => {
+      const cleanText =
+        text.trim();
 
-    if (!cleanText) {
-      return "Skin Lesion Analysis";
-    }
+      if (!cleanText) {
+        return "Skin Lesion Analysis";
+      }
 
-    return cleanText.length > 35
-      ? cleanText.substring(
-          0,
-          35
-        ) + "..."
-      : cleanText;
-  };
+      return cleanText.length > 35
+        ? cleanText.substring(
+            0,
+            35
+          ) + "..."
+        : cleanText;
+    };
 
   // =====================================================
-  // GET SAVED IMAGE
+  // GET IMAGE FOR CHAT
   // =====================================================
 
   const getImageForChat =
-    async (chatId) => {
+    async () => {
       if (image) {
         return image;
-      }
-
-      const chat = chats.find(
-        (item) =>
-          item.id === chatId
-      );
-
-      if (chat?.imageData) {
-        return await dataURLToFile(
-          chat.imageData,
-          "skin_lesion.jpg"
-        );
       }
 
       if (preview) {
@@ -410,67 +473,70 @@ function App() {
   // FLUSH STREAM BUFFER
   // =====================================================
 
-  const flushStreamBuffer = () => {
-    const chatId =
-      streamChatIdRef.current;
+  const flushStreamBuffer =
+    () => {
+      const chatId =
+        streamChatIdRef.current;
 
-    const assistantId =
-      streamAssistantIdRef.current;
+      const assistantId =
+        streamAssistantIdRef.current;
 
-    const textToAdd =
-      streamBufferRef.current;
+      const textToAdd =
+        streamBufferRef.current;
 
-    if (
-      !chatId ||
-      !assistantId ||
-      !textToAdd
-    ) {
-      return;
-    }
+      if (
+        !chatId ||
+        !assistantId ||
+        !textToAdd
+      ) {
+        return;
+      }
 
-    streamBufferRef.current =
-      "";
+      streamBufferRef.current =
+        "";
 
-    setChats((oldChats) =>
-      oldChats.map((chat) => {
-        if (
-          chat.id !== chatId
-        ) {
-          return chat;
-        }
-
-        return {
-          ...chat,
-
-          updatedAt:
-            new Date().toISOString(),
-
-          messages:
-            chat.messages.map(
-              (message) => {
-                if (
-                  message.id !==
-                  assistantId
-                ) {
-                  return message;
-                }
-
-                return {
-                  ...message,
-
-                  text:
-                    message.text +
-                    textToAdd,
-
-                  streaming:
-                    true,
-                };
+      setChats(
+        (oldChats) =>
+          oldChats.map(
+            (chat) => {
+              if (
+                chat.id !== chatId
+              ) {
+                return chat;
               }
-            ),
-        };
-      })
-    );
-  };
+
+              return {
+                ...chat,
+
+                updatedAt:
+                  new Date().toISOString(),
+
+                messages:
+                  chat.messages.map(
+                    (message) => {
+                      if (
+                        message.id !==
+                        assistantId
+                      ) {
+                        return message;
+                      }
+
+                      return {
+                        ...message,
+
+                        text:
+                          (message.text || "") +
+                          textToAdd,
+
+                        streaming: true,
+                      };
+                    }
+                  ),
+              };
+            }
+          )
+      );
+    };
 
   // =====================================================
   // SCHEDULE STREAM FLUSH
@@ -521,40 +587,43 @@ function App() {
       chatId &&
       assistantId
     ) {
-      setChats((oldChats) =>
-        oldChats.map((chat) => {
-          if (
-            chat.id !== chatId
-          ) {
-            return chat;
-          }
+      setChats(
+        (oldChats) =>
+          oldChats.map(
+            (chat) => {
+              if (
+                chat.id !== chatId
+              ) {
+                return chat;
+              }
 
-          return {
-            ...chat,
+              return {
+                ...chat,
 
-            updatedAt:
-              new Date().toISOString(),
+                updatedAt:
+                  new Date().toISOString(),
 
-            messages:
-              chat.messages.map(
-                (message) => {
-                  if (
-                    message.id !==
-                    assistantId
-                  ) {
-                    return message;
-                  }
+                messages:
+                  chat.messages.map(
+                    (message) => {
+                      if (
+                        message.id !==
+                        assistantId
+                      ) {
+                        return message;
+                      }
 
-                  return {
-                    ...message,
+                      return {
+                        ...message,
 
-                    streaming:
-                      false,
-                  };
-                }
-              ),
-          };
-        })
+                        streaming:
+                          false,
+                      };
+                    }
+                  ),
+              };
+            }
+          )
       );
     }
 
@@ -572,803 +641,843 @@ function App() {
   // SEND MESSAGE
   // =====================================================
 
-  const sendMessage = async () => {
+  const sendMessage =
+    async () => {
+      if (
+        loading ||
+        isStreaming
+      ) {
+        return;
+      }
 
-    // ===================================================
-    // IMPORTANT:
-    // Prevent duplicate request while response is streaming
-    // ===================================================
+      const question =
+        prompt.trim();
 
-    if (loading || isStreaming) {
-      return;
-    }
-
-    const question =
-      prompt.trim();
-
-    if (
-      !question &&
-      !image &&
-      !activeChat?.imageData
-    ) {
-      alert(
-        "Please upload a skin lesion image first."
-      );
-
-      return;
-    }
-
-    const finalQuestion =
-      question ||
-      "Please analyze this skin lesion image.";
-
-    let chatId =
-      activeChatId;
-
-    // ===================================================
-    // CREATE NEW CHAT
-    // ===================================================
-
-    if (!chatId) {
-      chatId =
-        Date.now().toString();
-
-      const newChat = {
-        id: chatId,
-
-        title:
-          generateTitle(
-            finalQuestion
-          ),
-
-        createdAt:
-          new Date().toISOString(),
-
-        updatedAt:
-          new Date().toISOString(),
-
-        messages: [],
-
-        imageData:
-          preview || null,
-      };
-
-      setChats((oldChats) => [
-        newChat,
-        ...oldChats,
-      ]);
-
-      setActiveChatId(chatId);
-    }
-
-    // ===================================================
-    // CURRENT CHAT
-    // ===================================================
-
-    const currentChat =
-      chats.find(
-        (chat) =>
-          chat.id === chatId
-      );
-
-    const firstMessage =
-      !currentChat ||
-      currentChat.messages.length ===
-        0;
-
-    // ===================================================
-    // FIRST MESSAGE NEEDS IMAGE
-    // ===================================================
-
-    let imageFile = null;
-
-    if (firstMessage) {
-      imageFile =
-        await getImageForChat(
-          chatId
-        );
-
-      if (!imageFile) {
+      if (
+        !question &&
+        !image &&
+        !preview
+      ) {
         alert(
           "Please upload a skin lesion image first."
         );
 
         return;
       }
-    }
 
-    // ===================================================
-    // USER MESSAGE
-    // ===================================================
+      const finalQuestion =
+        question ||
+        "Please analyze this skin lesion image.";
 
-    const userMessage = {
-      id:
-        Date.now().toString(),
+      let chatId =
+        activeChatId;
 
-      role: "user",
+      // =================================================
+      // CREATE NEW CHAT
+      // =================================================
 
-      text: finalQuestion,
+      if (!chatId) {
+        chatId =
+          Date.now().toString();
 
-      image: firstMessage
-        ? preview ||
-          currentChat?.imageData ||
-          null
-        : null,
-
-      createdAt:
-        new Date().toISOString(),
-    };
-
-    // ===================================================
-    // ADD USER MESSAGE
-    // ===================================================
-
-    setChats((oldChats) =>
-      oldChats.map((chat) => {
-        if (
-          chat.id !== chatId
-        ) {
-          return chat;
-        }
-
-        return {
-          ...chat,
+        const newChat = {
+          id: chatId,
 
           title:
-            chat.messages.length ===
-            0
-              ? generateTitle(
-                  finalQuestion
-                )
-              : chat.title,
+            generateTitle(
+              finalQuestion
+            ),
+
+          createdAt:
+            new Date().toISOString(),
 
           updatedAt:
             new Date().toISOString(),
 
-          imageData:
-            chat.imageData ||
-            preview ||
-            null,
-
-          messages: [
-            ...chat.messages,
-            userMessage,
-          ],
+          messages: [],
         };
-      })
-    );
 
-    // ===================================================
-    // CLEAR INPUT
-    // ===================================================
-
-    setPrompt("");
-
-    resetTextarea();
-
-    // ===================================================
-    // START LOADING
-    // ===================================================
-
-    setLoading(true);
-
-    try {
-
-      // =================================================
-      // FORM DATA
-      // =================================================
-
-      const formData =
-        new FormData();
-
-      // -------------------------------------------------
-      // IMAGE ONLY FOR FIRST MESSAGE
-      // -------------------------------------------------
-
-      if (
-        firstMessage &&
-        imageFile
-      ) {
-        formData.append(
-          "file",
-          imageFile
-        );
-      }
-
-      // -------------------------------------------------
-      // QUESTION
-      // -------------------------------------------------
-
-      formData.append(
-        "prompt",
-        finalQuestion
-      );
-
-      // -------------------------------------------------
-      // FIRST MESSAGE
-      // -------------------------------------------------
-
-      formData.append(
-        "first_message",
-        firstMessage
-          ? "true"
-          : "false"
-      );
-
-      // =================================================
-      // FOLLOW-UP
-      // =================================================
-
-      if (!firstMessage) {
-
-        /*
-         * Use the latest chats state to find
-         * the previous prediction.
-         */
-
-        const latestChat =
-          chats.find(
-            (chat) =>
-              chat.id === chatId
-          );
-
-        const previousAssistantMessage =
-          [
-            ...(latestChat?.messages ||
-              []),
+        setChats(
+          (oldChats) => [
+            newChat,
+            ...oldChats,
           ]
-            .reverse()
-            .find(
-              (message) =>
-                message.role ===
-                  "assistant" &&
-                message.prediction
-            );
+        );
 
-        if (
-          previousAssistantMessage?.prediction
-        ) {
+        setActiveChatId(
+          chatId
+        );
+      }
 
-          formData.append(
-            "previous_disease",
-            previousAssistantMessage
-              .prediction.disease
+      // =================================================
+      // CURRENT CHAT
+      // =================================================
+
+      const currentChat =
+        chats.find(
+          (chat) =>
+            chat.id === chatId
+        );
+
+      const firstMessage =
+        !currentChat ||
+        currentChat.messages.length === 0;
+
+      // =================================================
+      // FIRST MESSAGE IMAGE
+      // =================================================
+
+      let imageFile = null;
+
+      if (firstMessage) {
+        imageFile =
+          await getImageForChat();
+
+        if (!imageFile) {
+          alert(
+            "Please upload a skin lesion image first."
           );
 
-          formData.append(
-            "previous_confidence",
-            String(
-              previousAssistantMessage
-                .prediction.confidence
-            )
-          );
+          return;
         }
       }
 
-      console.log(
-        "================================"
-      );
-
-      console.log(
-        "Sending message..."
-      );
-
-      console.log(
-        "Question:",
-        finalQuestion
-      );
-
-      console.log(
-        "First message:",
-        firstMessage
-      );
-
-      if (imageFile) {
-        console.log(
-          "Image:",
-          imageFile.name
-        );
-      } else {
-        console.log(
-          "Follow-up: image not sent"
-        );
-      }
-
-      console.log(
-        "================================"
-      );
-
       // =================================================
-      // FETCH
+      // USER MESSAGE
       // =================================================
 
-      const response =
-        await fetch(
-          `${API_URL}/chat`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
+      const userMessage = {
+        id:
+          Date.now().toString(),
 
-      // =================================================
-      // RESPONSE CHECK
-      // =================================================
+        role: "user",
 
-      if (!response.ok) {
+        text:
+          finalQuestion,
 
-        let errorText =
-          "Backend request failed.";
-
-        try {
-
-          const errorData =
-            await response.json();
-
-          if (
-            typeof errorData?.detail ===
-            "string"
-          ) {
-            errorText =
-              errorData.detail;
-
-          } else if (
-            Array.isArray(
-              errorData?.detail
-            )
-          ) {
-            errorText =
-              errorData.detail
-                .map(
-                  (item) =>
-                    item.msg ||
-                    JSON.stringify(
-                      item
-                    )
-                )
-                .join(", ");
-          }
-
-        } catch {
-          // Ignore JSON parsing error
-        }
-
-        throw new Error(
-          errorText
-        );
-      }
-
-      // =================================================
-      // STREAM CHECK
-      // =================================================
-
-      if (!response.body) {
-        throw new Error(
-          "Streaming response is not available."
-        );
-      }
-
-      // =================================================
-      // ASSISTANT MESSAGE
-      // =================================================
-
-      const assistantId =
-        (
-          Date.now() + 1
-        ).toString();
-
-      const assistantMessage = {
-        id: assistantId,
-
-        role: "assistant",
-
-        text: "",
-
-        prediction: null,
-
-        note: null,
-
-        streaming: true,
+        image:
+          firstMessage
+            ? preview || null
+            : null,
 
         createdAt:
           new Date().toISOString(),
       };
 
-      // Save stream references
-      streamChatIdRef.current =
-        chatId;
-
-      streamAssistantIdRef.current =
-        assistantId;
-
-      streamBufferRef.current =
-        "";
-
       // =================================================
-      // ADD EMPTY ASSISTANT MESSAGE
+      // ADD USER MESSAGE
       // =================================================
 
-      setChats((oldChats) =>
-        oldChats.map((chat) => {
-          if (
-            chat.id !== chatId
-          ) {
-            return chat;
-          }
+      setChats(
+        (oldChats) =>
+          oldChats.map(
+            (chat) => {
+              if (
+                chat.id !== chatId
+              ) {
+                return chat;
+              }
 
-          return {
-            ...chat,
+              return {
+                ...chat,
 
-            updatedAt:
-              new Date().toISOString(),
+                title:
+                  chat.messages.length === 0
+                    ? generateTitle(
+                        finalQuestion
+                      )
+                    : chat.title,
 
-            messages: [
-              ...chat.messages,
-              assistantMessage,
-            ],
-          };
-        })
+                updatedAt:
+                  new Date().toISOString(),
+
+                messages: [
+                  ...chat.messages,
+                  userMessage,
+                ],
+              };
+            }
+          )
       );
 
       // =================================================
-      // STREAM READER
+      // CLEAR INPUT
       // =================================================
 
-      const reader =
-        response.body.getReader();
+      setPrompt("");
 
-      const decoder =
-        new TextDecoder(
-          "utf-8"
-        );
-
-      let buffer = "";
-
-      let receivedFirstToken =
-        false;
+      resetTextarea();
 
       // =================================================
-      // READ STREAM
+      // START LOADING
       // =================================================
 
-      while (true) {
+      setLoading(true);
 
-        const {
-          value,
-          done,
-        } = await reader.read();
+      try {
+        // ===============================================
+        // FORM DATA
+        // ===============================================
 
-        if (done) {
-          break;
+        const formData =
+          new FormData();
+
+        // ===============================================
+        // IMAGE ONLY FIRST MESSAGE
+        // ===============================================
+
+        if (
+          firstMessage &&
+          imageFile
+        ) {
+          formData.append(
+            "file",
+            imageFile
+          );
         }
 
-        buffer +=
-          decoder.decode(
-            value,
+        // ===============================================
+        // QUESTION
+        // ===============================================
+
+        formData.append(
+          "prompt",
+          finalQuestion
+        );
+
+        // ===============================================
+        // FIRST MESSAGE
+        // ===============================================
+
+        formData.append(
+          "first_message",
+          firstMessage
+            ? "true"
+            : "false"
+        );
+
+        // ===============================================
+        // FOLLOW-UP
+        // ===============================================
+
+        if (!firstMessage) {
+          const latestChat =
+            chats.find(
+              (chat) =>
+                chat.id === chatId
+            );
+
+          const previousAssistantMessage =
+            [
+              ...(latestChat?.messages ||
+                []),
+            ]
+              .reverse()
+              .find(
+                (message) =>
+                  message.role ===
+                    "assistant" &&
+                  message.prediction
+              );
+
+          if (
+            previousAssistantMessage?.prediction
+          ) {
+            const previousPrediction =
+              previousAssistantMessage.prediction;
+
+            formData.append(
+              "previous_disease",
+              previousPrediction.disease
+            );
+
+            // Normal skin has confidence = null.
+            // Do NOT send "null" string.
+
+            if (
+              previousPrediction.confidence !==
+                null &&
+              previousPrediction.confidence !==
+                undefined
+            ) {
+              formData.append(
+                "previous_confidence",
+                String(
+                  previousPrediction.confidence
+                )
+              );
+            } else {
+              formData.append(
+                "previous_confidence",
+                ""
+              );
+            }
+          }
+        }
+
+        // ===============================================
+        // DEBUG
+        // ===============================================
+
+        console.log(
+          "================================"
+        );
+
+        console.log(
+          "Sending message..."
+        );
+
+        console.log(
+          "Question:",
+          finalQuestion
+        );
+
+        console.log(
+          "First message:",
+          firstMessage
+        );
+
+        if (imageFile) {
+          console.log(
+            "Image:",
+            imageFile.name
+          );
+        } else {
+          console.log(
+            "Follow-up: image not sent"
+          );
+        }
+
+        console.log(
+          "================================"
+        );
+
+        // ===============================================
+        // FETCH
+        // ===============================================
+
+        const response =
+          await fetch(
+            `${API_URL}/chat`,
             {
-              stream: true,
+              method: "POST",
+              body: formData,
             }
           );
 
-        const lines =
-          buffer.split("\n");
+        // ===============================================
+        // BACKEND ERROR
+        // ===============================================
 
-        buffer =
-          lines.pop() || "";
-
-        // =================================================
-        // PROCESS NDJSON
-        // =================================================
-
-        for (
-          const line of lines
-        ) {
-
-          const cleanLine =
-            line.trim();
-
-          if (!cleanLine) {
-            continue;
-          }
-
-          let event;
+        if (!response.ok) {
+          let errorText =
+            "Unable to process the request.";
 
           try {
+            const errorData =
+              await response.json();
 
-            event =
-              JSON.parse(
-                cleanLine
-              );
-
+            if (
+              typeof errorData?.detail ===
+              "string"
+            ) {
+              errorText =
+                errorData.detail;
+            } else if (
+              errorData?.detail?.message
+            ) {
+              errorText =
+                errorData.detail.message;
+            } else if (
+              Array.isArray(
+                errorData?.detail
+              )
+            ) {
+              errorText =
+                errorData.detail
+                  .map(
+                    (item) =>
+                      item.msg ||
+                      JSON.stringify(
+                        item
+                      )
+                  )
+                  .join(", ");
+            }
           } catch (
             parseError
           ) {
-
-            console.warn(
-              "Invalid stream JSON:",
-              cleanLine
-            );
-
-            continue;
-          }
-
-          // =================================================
-          // PREDICTION
-          // =================================================
-
-          if (
-            event.type ===
-            "prediction"
-          ) {
-
-            setChats(
-              (oldChats) =>
-                oldChats.map(
-                  (chat) => {
-
-                    if (
-                      chat.id !==
-                      chatId
-                    ) {
-                      return chat;
-                    }
-
-                    return {
-
-                      ...chat,
-
-                      messages:
-                        chat.messages.map(
-                          (
-                            message
-                          ) => {
-
-                            if (
-                              message.id !==
-                              assistantId
-                            ) {
-                              return message;
-                            }
-
-                            return {
-
-                              ...message,
-
-                              prediction:
-                                event.prediction_performed
-                                  ? {
-                                      disease:
-                                        event.disease,
-
-                                      confidence:
-                                        event.confidence,
-                                    }
-                                  : null,
-
-                              note:
-                                event.prediction_performed
-                                  ? "The image classification result is an AI research prediction and not a confirmed medical diagnosis."
-                                  : null,
-                            };
-                          }
-                        ),
-                    };
-                  }
-                )
+            console.error(
+              "Backend error parsing failed:",
+              parseError
             );
           }
 
-          // =================================================
-          // TOKEN
-          // =================================================
+          throw new Error(
+            errorText
+          );
+        }
 
-          if (
-            event.type ===
-            "token"
+        // ===============================================
+        // STREAM CHECK
+        // ===============================================
+
+        if (!response.body) {
+          throw new Error(
+            "Streaming response is not available."
+          );
+        }
+
+        // ===============================================
+        // ASSISTANT MESSAGE
+        // ===============================================
+
+        const assistantId =
+          (
+            Date.now() + 1
+          ).toString();
+
+        const assistantMessage = {
+          id: assistantId,
+
+          role: "assistant",
+
+          text: "",
+
+          prediction: null,
+
+          note: null,
+
+          validation: null,
+
+          normalSkin: null,
+
+          streaming: true,
+
+          createdAt:
+            new Date().toISOString(),
+        };
+
+        // ===============================================
+        // SAVE STREAM REFERENCES
+        // ===============================================
+
+        streamChatIdRef.current =
+          chatId;
+
+        streamAssistantIdRef.current =
+          assistantId;
+
+        streamBufferRef.current =
+          "";
+
+        // ===============================================
+        // ADD ASSISTANT MESSAGE
+        // ===============================================
+
+        setChats(
+          (oldChats) =>
+            oldChats.map(
+              (chat) => {
+                if (
+                  chat.id !== chatId
+                ) {
+                  return chat;
+                }
+
+                return {
+                  ...chat,
+
+                  updatedAt:
+                    new Date().toISOString(),
+
+                  messages: [
+                    ...chat.messages,
+                    assistantMessage,
+                  ],
+                };
+              }
+            )
+        );
+
+        // ===============================================
+        // STREAM READER
+        // ===============================================
+
+        const reader =
+          response.body.getReader();
+
+        const decoder =
+          new TextDecoder(
+            "utf-8"
+          );
+
+        let buffer = "";
+
+        let receivedFirstToken =
+          false;
+
+        // ===============================================
+        // READ STREAM
+        // ===============================================
+
+        while (true) {
+          const {
+            value,
+            done,
+          } =
+            await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          buffer +=
+            decoder.decode(
+              value,
+              {
+                stream: true,
+              }
+            );
+
+          const lines =
+            buffer.split("\n");
+
+          buffer =
+            lines.pop() || "";
+
+          // =============================================
+          // PROCESS NDJSON
+          // =============================================
+
+          for (
+            const line of lines
           ) {
+            const cleanLine =
+              line.trim();
 
-            const token =
-              event.content || "";
-
-            if (!token) {
+            if (!cleanLine) {
               continue;
             }
 
-            // ---------------------------------------------
-            // FIRST TOKEN
-            // ---------------------------------------------
+            let event;
 
-            if (
-              !receivedFirstToken
+            try {
+              event =
+                JSON.parse(
+                  cleanLine
+                );
+            } catch (
+              parseError
             ) {
+              console.warn(
+                "Invalid stream JSON:",
+                cleanLine
+              );
 
-              receivedFirstToken =
-                true;
-
-              // Hide dots immediately
-              setLoading(false);
+              continue;
             }
 
-            // ---------------------------------------------
-            // BUFFER TOKEN
-            // ---------------------------------------------
+            // =========================================
+            // PREDICTION
+            // =========================================
 
-            streamBufferRef.current +=
-              token;
+            if (
+              event.type ===
+              "prediction"
+            ) {
+              console.log(
+                "Prediction event:",
+                event
+              );
 
-            scheduleStreamFlush();
-          }
+              setChats(
+                (oldChats) =>
+                  oldChats.map(
+                    (chat) => {
+                      if (
+                        chat.id !==
+                        chatId
+                      ) {
+                        return chat;
+                      }
 
-          // =================================================
-          // DONE
-          // =================================================
+                      return {
+                        ...chat,
 
-          if (
-            event.type ===
-            "done"
-          ) {
+                        messages:
+                          chat.messages.map(
+                            (message) => {
+                              if (
+                                message.id !==
+                                assistantId
+                              ) {
+                                return message;
+                              }
 
-            finishStream();
-          }
+                              // =====================================
+                              // PREDICTION OBJECT
+                              // =====================================
 
-          // =================================================
-          // ERROR
-          // =================================================
+                              const prediction =
+                                event.prediction_performed
+                                  ? {
+                                      disease:
+                                        event.disease ||
+                                        "Unknown",
 
-          if (
-            event.type ===
-            "error"
-          ) {
+                                      confidence:
+                                        typeof event.confidence ===
+                                        "number"
+                                          ? event.confidence
+                                          : null,
 
-            throw new Error(
-              event.message ||
-                "Groq streaming failed."
-            );
+                                      isNormal:
+                                        event.disease ===
+                                        "No Disease Detected",
+
+                                      // =================================
+                                      // NEW: GRAD-CAM URL
+                                      // =================================
+
+                                      gradcamUrl:
+                                        event.gradcam_url ||
+                                        null,
+                                    }
+                                  : null;
+
+                              return {
+                                ...message,
+
+                                prediction,
+
+                                note:
+                                  event.prediction_performed
+                                    ? (
+                                        event.disease ===
+                                        "No Disease Detected"
+
+                                          ? "The research model did not detect a clear abnormality. This does not confirm that the skin is medically healthy."
+
+                                          : "The image classification result is an AI research prediction and not a confirmed medical diagnosis."
+                                      )
+                                    : null,
+
+                                validation:
+                                  event.validation ||
+                                  null,
+
+                                normalSkin:
+                                  event.normal_skin ||
+                                  null,
+                              };
+                            }
+                          ),
+                      };
+                    }
+                  )
+              );
+            }
+
+            // =========================================
+            // TOKEN
+            // =========================================
+
+            if (
+              event.type ===
+              "token"
+            ) {
+              const token =
+                event.content ||
+                event.token ||
+                "";
+
+              if (!token) {
+                continue;
+              }
+
+              if (
+                !receivedFirstToken
+              ) {
+                receivedFirstToken =
+                  true;
+
+                setLoading(
+                  false
+                );
+              }
+
+              streamBufferRef.current +=
+                token;
+
+              scheduleStreamFlush();
+            }
+
+            // =========================================
+            // DONE
+            // =========================================
+
+            if (
+              event.type ===
+              "done"
+            ) {
+              console.log(
+                "Groq stream completed."
+              );
+
+              finishStream();
+            }
+
+            // =========================================
+            // ERROR
+            // =========================================
+
+            if (
+              event.type ===
+              "error"
+            ) {
+              throw new Error(
+                event.message ||
+                  "Groq streaming failed."
+              );
+            }
           }
         }
-      }
 
-      // =================================================
-      // FLUSH REMAINING BUFFER
-      // =================================================
+        // ===============================================
+        // FINAL FLUSH
+        // ===============================================
 
-      finishStream();
-
-    } catch (error) {
-
-      console.error(
-        "CHAT ERROR:",
-        error
-      );
-
-      // Stop pending stream timer
-      if (
-        streamFlushTimerRef.current
-      ) {
-
-        clearTimeout(
-          streamFlushTimerRef.current
+        finishStream();
+      } catch (error) {
+        console.error(
+          "CHAT ERROR:",
+          error
         );
 
-        streamFlushTimerRef.current =
-          null;
-      }
+        // ===============================================
+        // STOP STREAM TIMER
+        // ===============================================
 
-      streamBufferRef.current =
-        "";
+        if (
+          streamFlushTimerRef.current
+        ) {
+          clearTimeout(
+            streamFlushTimerRef.current
+          );
 
-      streamChatIdRef.current =
-        null;
+          streamFlushTimerRef.current =
+            null;
+        }
 
-      streamAssistantIdRef.current =
-        null;
-
-      const errorMessage = {
-        id:
-          (
-            Date.now() + 2
-          ).toString(),
-
-        role: "assistant",
-
-        text:
-          "❌ Unable to connect to SkinGuardian AI.\n\n" +
-          (
-            error?.message ||
-            String(error)
-          ),
-
-        error: true,
-
-        streaming: false,
-
-        createdAt:
-          new Date().toISOString(),
-      };
-
-      setChats((oldChats) =>
-        oldChats.map((chat) => {
-
-          if (
-            chat.id !== chatId
-          ) {
-            return chat;
-          }
-
-          return {
-
-            ...chat,
-
-            updatedAt:
-              new Date().toISOString(),
-
-            messages: [
-              ...chat.messages,
-              errorMessage,
-            ],
-          };
-        })
-      );
-
-    } finally {
-
-      setLoading(false);
-
-      // Keep image in chat history
-      setImage(null);
-
-      if (fileInputRef.current) {
-
-        fileInputRef.current.value =
+        streamBufferRef.current =
           "";
+
+        streamChatIdRef.current =
+          null;
+
+        streamAssistantIdRef.current =
+          null;
+
+        // ===============================================
+        // USER FRIENDLY ERROR
+        // ===============================================
+
+        const errorText =
+          error?.message ||
+          "Unable to connect to SkinGuardian AI.";
+
+        const errorMessage = {
+          id:
+            (
+              Date.now() + 2
+            ).toString(),
+
+          role: "assistant",
+
+          text:
+            `❌ ${errorText}`,
+
+          error: true,
+
+          streaming: false,
+
+          createdAt:
+            new Date().toISOString(),
+        };
+
+        setChats(
+          (oldChats) =>
+            oldChats.map(
+              (chat) => {
+                if (
+                  chat.id !== chatId
+                ) {
+                  return chat;
+                }
+
+                return {
+                  ...chat,
+
+                  updatedAt:
+                    new Date().toISOString(),
+
+                  messages: [
+                    ...chat.messages,
+                    errorMessage,
+                  ],
+                };
+              }
+            )
+        );
+      } finally {
+        setLoading(false);
+
+        setImage(null);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value =
+            "";
+        }
       }
-    }
-  };
+    };
 
   // =====================================================
-  // ENTER / SHIFT + ENTER
+  // ENTER / SHIFT ENTER
   // =====================================================
 
-  const handleKeyDown = (
-    event
-  ) => {
+  const handleKeyDown =
+    (event) => {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
 
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-
-      event.preventDefault();
-
-      sendMessage();
-    }
-  };
+        sendMessage();
+      }
+    };
 
   // =====================================================
   // SUGGESTION
   // =====================================================
 
-  const useSuggestion = (
-    text
-  ) => {
+  const useSuggestion =
+    (text) => {
+      setPrompt(text);
 
-    setPrompt(text);
-
-    setTimeout(() => {
-
-      if (
-        textareaRef.current
-      ) {
-
-        textareaRef.current.focus();
-
-        autoResizeTextarea(
+      setTimeout(() => {
+        if (
           textareaRef.current
-        );
-      }
+        ) {
+          textareaRef.current.focus();
 
-    }, 0);
-  };
+          autoResizeTextarea(
+            textareaRef.current
+          );
+        }
+      }, 0);
+    };
 
   // =====================================================
   // MESSAGES
@@ -1378,7 +1487,7 @@ function App() {
     activeChat?.messages || [];
 
   // =====================================================
-  // CHECK STREAMING
+  // STREAMING CHECK
   // =====================================================
 
   const isStreaming =
@@ -1423,11 +1532,16 @@ function App() {
 
         <button
           className="new-chat-button"
-          onClick={createNewChat}
+          onClick={
+            createNewChat
+          }
           disabled={loading}
         >
+
           <span>＋</span>
+
           New Chat
+
         </button>
 
         <div className="recent-header">
@@ -1476,7 +1590,9 @@ function App() {
                     : ""
                 }`}
                 onClick={() =>
-                  openChat(chat.id)
+                  openChat(
+                    chat.id
+                  )
                 }
               >
 
@@ -1491,9 +1607,11 @@ function App() {
                   </div>
 
                   <div className="history-date">
+
                     {new Date(
                       chat.updatedAt
                     ).toLocaleDateString()}
+
                   </div>
 
                 </div>
@@ -1589,7 +1707,9 @@ function App() {
 
           <button
             className="header-new-chat"
-            onClick={createNewChat}
+            onClick={
+              createNewChat
+            }
             disabled={loading}
           >
             ＋ New Chat
@@ -1734,7 +1854,9 @@ function App() {
                     className={`message-row ${
                       message.role
                     }`}
-                    key={message.id}
+                    key={
+                      message.id
+                    }
                   >
 
                     <div className="avatar">
@@ -1771,7 +1893,9 @@ function App() {
 
                       )}
 
-                      {/* PREDICTION CARD */}
+                      {/* ==================================================
+                          PREDICTION CARD
+                      ================================================== */}
 
                       {message.prediction && (
 
@@ -1782,6 +1906,8 @@ function App() {
                           </div>
 
                           <div className="prediction-grid">
+
+                            {/* PREDICTED CONDITION */}
 
                             <div className="prediction-item">
 
@@ -1799,23 +1925,94 @@ function App() {
 
                             </div>
 
-                            <div className="prediction-item">
+                            {/* CONFIDENCE */}
 
-                              <span>
-                                Confidence
-                              </span>
+                            {!message.prediction.isNormal && (
 
-                              <strong>
-                                {
-                                  message
-                                    .prediction
-                                    .confidence
-                                }%
-                              </strong>
+                              <div className="prediction-item">
+
+                                <span>
+                                  Confidence
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    message
+                                      .prediction
+                                      .confidence !==
+                                    null
+                                      ? `${message.prediction.confidence}%`
+                                      : "N/A"
+                                  }
+
+                                </strong>
+
+                              </div>
+
+                            )}
+
+                          </div>
+
+                          {/* ==================================================
+                              NORMAL SKIN NOTE
+                          ================================================== */}
+
+                          {message.prediction.isNormal && (
+
+                            <div className="normal-result-note">
+
+                              ✓ No clear abnormality was detected
+                              by the research model.
 
                             </div>
 
-                          </div>
+                          )}
+
+                          {/* ==================================================
+                              GRAD-CAM
+                          ================================================== */}
+
+                          {message.prediction.gradcamUrl &&
+                            !message.prediction.isNormal && (
+
+                            <div className="gradcam-section">
+
+                              <div className="gradcam-title">
+                                🔥 AI Attention / Grad-CAM
+                              </div>
+
+                              <p className="gradcam-description">
+                                Highlighted areas show regions
+                                that contributed to the
+                                CNN-based prediction.
+                              </p>
+
+                              <img
+                                src={`${API_URL}${message.prediction.gradcamUrl}`}
+                                className="gradcam-image"
+                                alt="Grad-CAM explanation"
+                                onError={(event) => {
+                                  console.error(
+                                    "Grad-CAM image failed to load:",
+                                    event
+                                  );
+
+                                  event.currentTarget.style.display =
+                                    "none";
+                                }}
+                              />
+
+                              <small className="gradcam-warning">
+                                Grad-CAM is an explainability
+                                visualization. It does not
+                                confirm that the highlighted
+                                area is medically diseased.
+                              </small>
+
+                            </div>
+
+                          )}
 
                         </div>
 
@@ -1863,7 +2060,7 @@ function App() {
                 )
               )}
 
-              {/* DOT LOADING */}
+              {/* LOADING */}
 
               {loading &&
                 !isStreaming && (
@@ -1895,7 +2092,9 @@ function App() {
                 )}
 
               <div
-                ref={bottomRef}
+                ref={
+                  bottomRef
+                }
               ></div>
 
             </div>
@@ -1955,15 +2154,21 @@ function App() {
             </button>
 
             <input
-              ref={fileInputRef}
+              ref={
+                fileInputRef
+              }
               type="file"
               accept=".jpg,.jpeg,.png,.bmp,.webp"
-              onChange={handleImage}
+              onChange={
+                handleImage
+              }
               hidden
             />
 
             <textarea
-              ref={textareaRef}
+              ref={
+                textareaRef
+              }
               value={prompt}
               onChange={
                 handlePromptChange
@@ -1972,7 +2177,7 @@ function App() {
                 handleKeyDown
               }
               placeholder={
-                activeChat?.imageData
+                activeChat
                   ? "Ask about this skin lesion..."
                   : "Upload an image and ask SkinGuardian AI..."
               }
@@ -1989,7 +2194,7 @@ function App() {
                 loading ||
                 (
                   !image &&
-                  !activeChat?.imageData &&
+                  !preview &&
                   !prompt.trim()
                 )
               }
@@ -2001,15 +2206,19 @@ function App() {
           </div>
 
           <div className="input-hint">
+
             Enter to send • Shift + Enter
             for new line
+
           </div>
 
           <div className="disclaimer">
+
             SkinGuardian AI provides
             research-oriented information
             and is not a substitute for
             professional medical diagnosis.
+
           </div>
 
         </div>

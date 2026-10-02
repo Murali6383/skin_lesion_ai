@@ -1,6 +1,7 @@
 import argparse
 import joblib
 import torch
+
 from PIL import Image
 from torchvision import transforms, models
 from torch import nn
@@ -18,7 +19,10 @@ class SkinLesionPredictor:
 
         print("Loading EfficientNet-B0...")
 
-        self.eff = models.efficientnet_b0(weights=None)
+        self.eff = models.efficientnet_b0(
+            weights=None
+        )
+
         self.eff.classifier = nn.Identity()
 
         self.eff.load_state_dict(
@@ -62,24 +66,34 @@ class SkinLesionPredictor:
             transforms.Resize(
                 (IMAGE_SIZE, IMAGE_SIZE)
             ),
+
             transforms.ToTensor(),
+
             transforms.Normalize(
                 [.485, .456, .406],
                 [.229, .224, .225]
             )
         ])
 
-        print("All models loaded successfully.")
+        print("All disease models loaded successfully.")
+
+    # =====================================================
+    # DISEASE PREDICTION
+    # =====================================================
 
     def predict(self, image_path):
 
-        image = Image.open(image_path).convert("RGB")
+        image = Image.open(
+            image_path
+        ).convert("RGB")
 
-        x = self.tfm(image).unsqueeze(0).to(self.dev)
+        x = self.tfm(
+            image
+        ).unsqueeze(0).to(self.dev)
 
-        # ----------------------------------------
-        # Hybrid CNN Feature Extraction
-        # ----------------------------------------
+        # =================================================
+        # HYBRID CNN FEATURE EXTRACTION
+        # =================================================
 
         with torch.inference_mode():
 
@@ -88,21 +102,24 @@ class SkinLesionPredictor:
             inc_features = self.inc(x)
 
             features = torch.cat(
-                [eff_features, inc_features],
+                [
+                    eff_features,
+                    inc_features
+                ],
                 dim=1
             ).cpu().numpy()
 
-        # ----------------------------------------
-        # EGA Feature Selection
-        # ----------------------------------------
+        # =================================================
+        # EGA FEATURE SELECTION
+        # =================================================
 
         selected_features = self.ega.transform(
             features
         )
 
-        # ----------------------------------------
-        # Logistic Regression
-        # ----------------------------------------
+        # =================================================
+        # LOGISTIC REGRESSION
+        # =================================================
 
         pred = int(
             self.clf.predict(
@@ -122,50 +139,70 @@ class SkinLesionPredictor:
 
         return {
             "prediction": disease,
-            "confidence": round(confidence, 2)
+            "confidence": round(
+                confidence,
+                2
+            )
         }
 
 
-# ----------------------------------------
-# Global Predictor
-# ----------------------------------------
-# Model is loaded only once.
-# FastAPI can reuse this predictor.
+# =========================================================
+# GLOBAL PREDICTOR
+# =========================================================
+#
+# Loaded only once.
+# FastAPI can reuse this object.
+#
+# =========================================================
 
 predictor = SkinLesionPredictor()
 
 
-# ----------------------------------------
-# CLI Function
-# ----------------------------------------
+# =========================================================
+# CLI FUNCTION
+# =========================================================
 
 def main(image_path):
 
-    result = predictor.predict(image_path)
+    result = predictor.predict(
+        image_path
+    )
 
     print()
     print("======================================")
     print("       SKIN LESION PREDICTION")
     print("======================================")
+
     print(
         "Predicted class:",
         result["prediction"]
     )
+
     print(
         f'Confidence: {result["confidence"]:.2f}%'
     )
+
     print("======================================")
 
-    # Important for FastAPI
-    return (
-        result["prediction"],
-        result["confidence"]
-    )
+    return {
+        "success": True,
+
+        "predicted_class":
+            result["prediction"],
+
+        "confidence_percent":
+            result["confidence"],
+
+        "note": (
+            "Research classification output; "
+            "not a medical diagnosis."
+        )
+    }
 
 
-# ----------------------------------------
-# Command Line Testing
-# ----------------------------------------
+# =========================================================
+# COMMAND LINE TESTING
+# =========================================================
 
 if __name__ == "__main__":
 
@@ -178,4 +215,6 @@ if __name__ == "__main__":
 
     args = ap.parse_args()
 
-    main(args.image)
+    main(
+        args.image
+    )

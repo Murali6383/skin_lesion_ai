@@ -40,11 +40,18 @@ STEPS MODEL TRAIN
 
 STEPS :
 
-3.//pip install -r requirements.txt
+1.//pip install -r requirements.txt
 
-4.//python -m uvicorn backend.main:app --reload
+2.//python -m uvicorn backend.main:app --reload
+
+to open another terminal :
+
+1. cd frontend
+2. npm install
+3. npm run dev
 
 
 
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001
 
 
